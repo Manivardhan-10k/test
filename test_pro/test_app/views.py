@@ -46,7 +46,7 @@ def verify_jwt(req):
 
 # ----------------- Views -----------------
 def welcome(req):
-    return HttpResponse("Welcome to the Secure User API with JWT + bcrypt")
+    return HttpResponse("Welcome to the Django app!")
 
 
 @csrf_exempt
