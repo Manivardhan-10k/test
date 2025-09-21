@@ -57,10 +57,10 @@ def reg_user(request):
         return JsonResponse({"error": "Only POST method allowed"}, status=405)
 
     try:
-        data = request.POST.copy()  # form fields (text)
+        data = request.POST.copy()  # text fields from form-data
         profile_pic = request.FILES.get("profile_pic")  # file field
 
-        # Check password
+        # Validate password
         if not data.get("password"):
             return JsonResponse({"error": "Password is required"}, status=400)
 
@@ -74,8 +74,17 @@ def reg_user(request):
         # Save user with serializer
         serializer = UserSerializers(data=data)
         if serializer.is_valid():
-            serializer.save(profile_pic=profile_pic)  # save uploaded file
-            return JsonResponse({"message": "User registered successfully"}, status=201)
+            user = serializer.save(profile_pic=profile_pic)  # save once
+
+            # Cloudinary URL of uploaded image
+            profile_url = user.profile_pic.url if user.profile_pic else None
+            print("Uploaded image URL:", profile_url)
+
+            return JsonResponse({
+                "message": "User registered successfully",
+                "profile_pic_url": profile_url
+            }, status=201)
+
         else:
             return JsonResponse(serializer.errors, status=400)
 
