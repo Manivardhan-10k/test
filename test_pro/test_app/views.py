@@ -11,6 +11,9 @@ from django.views.decorators.csrf import csrf_exempt
 from .models import PracAppUser
 from .serializers import UserSerializers
 
+
+import cloudinary
+
 # JWT Config
 JWT_SECRET = getattr(settings, "SECRET_KEY", "supersecret")
 JWT_ALGO = "HS256"
@@ -50,46 +53,50 @@ def welcome(req):
 
 
 
+
 @csrf_exempt
 def reg_user(request):
+    """Register new user and store Cloudinary URL in profile_pic"""
 
     if request.method != "POST":
         return JsonResponse({"error": "Only POST method allowed"}, status=405)
 
     try:
-        data = request.POST.copy()  # text fields from form-data
-        profile_pic = request.FILES.get("profile_pic")  # file field
+        data = request.POST.copy()
+        uploaded_file = request.FILES.get("profile_pic")
 
-        # Validate password
+        # Password validation
         if not data.get("password"):
             return JsonResponse({"error": "Password is required"}, status=400)
 
         # Hash password
         hashed_pw = bcrypt.hashpw(
-            data["password"].encode("utf-8"),
-            bcrypt.gensalt()
+            data["password"].encode("utf-8"), bcrypt.gensalt()
         )
         data["password"] = hashed_pw.decode("utf-8")
 
-        # Save user with serializer
+        # Upload image to Cloudinary if provided
+        if uploaded_file:
+            result = cloudinary.uploader.upload(
+                uploaded_file,
+                folder="profiles"  # Cloudinary folder
+            )
+            data["profile_pic"] = result.get("secure_url")  # store URL in DB
+
+        # Save user
         serializer = UserSerializers(data=data)
         if serializer.is_valid():
-            user = serializer.save(profile_pic=profile_pic)  # save once
-
-            # Cloudinary URL of uploaded image
-            profile_url = user.profile_pic.url if user.profile_pic else None
-            print("Uploaded image URL:", profile_url)
-
+            user = serializer.save()
             return JsonResponse({
                 "message": "User registered successfully",
-                "profile_pic_url": profile_url
+                "profile_pic_url": user.profile_pic
             }, status=201)
-
         else:
             return JsonResponse(serializer.errors, status=400)
 
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+
 
 
 
