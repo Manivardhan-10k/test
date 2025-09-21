@@ -50,29 +50,40 @@ def welcome(req):
 
 
 @csrf_exempt
-def reg_user(req):
-    """Register new user"""
-    if req.method == "POST":
+def reg_user(request):
+    """Register new user using JSON body (profile_pic as URL)"""
+
+    if request.method != "POST":
+        return JsonResponse({"error": "Only POST method allowed"}, status=405)
+
+    try:
+        # Parse JSON body
         try:
-            data = json.loads(req.body.decode("utf-8"))
+            data = json.loads(request.body.decode("utf-8"))
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON format"}, status=400)
 
-            if "password" not in data:
-                return JsonResponse({"error": "Password is required"}, status=400)
+        # Check password
+        if not data.get("password"):
+            return JsonResponse({"error": "Password is required"}, status=400)
 
-            # Hash password
-            hashed_pw = bcrypt.hashpw(data["password"].encode("utf-8"), bcrypt.gensalt())
-            data["password"] = hashed_pw.decode("utf-8")
+        # Hash password
+        hashed_pw = bcrypt.hashpw(
+            data["password"].encode("utf-8"),
+            bcrypt.gensalt()
+        )
+        data["password"] = hashed_pw.decode("utf-8")
 
-            serializer = UserSerializers(data=data)
-            if serializer.is_valid():
-                serializer.save()
-                return JsonResponse({"message": "User registered successfully"}, status=201)
-            else:
-                return JsonResponse({"errors": serializer.errors}, status=400)
-        except Exception as e:
-            return JsonResponse({"error": str(e)}, status=500)
+        # Use serializer
+        serializer = UserSerializers(data=data)
+        if serializer.is_valid():
+            serializer.save()  # profile_pic will be saved as string (URL)
+            return JsonResponse({"message": "User registered successfully"}, status=201)
+        else:
+            return JsonResponse({"errors": serializer.errors}, status=400)
 
-    return JsonResponse({"error": "Only POST method allowed"}, status=405)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
 
 
 @csrf_exempt
