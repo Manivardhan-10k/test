@@ -49,19 +49,16 @@ def welcome(req):
     return HttpResponse("Welcome to the Django app!")
 
 
+
 @csrf_exempt
 def reg_user(request):
-    """Register new user using JSON body (profile_pic as URL)"""
 
     if request.method != "POST":
         return JsonResponse({"error": "Only POST method allowed"}, status=405)
 
     try:
-        # Parse JSON body
-        try:
-            data = json.loads(request.body.decode("utf-8"))
-        except json.JSONDecodeError:
-            return JsonResponse({"error": "Invalid JSON format"}, status=400)
+        data = request.POST.copy()  # form fields (text)
+        profile_pic = request.FILES.get("profile_pic")  # file field
 
         # Check password
         if not data.get("password"):
@@ -74,16 +71,17 @@ def reg_user(request):
         )
         data["password"] = hashed_pw.decode("utf-8")
 
-        # Use serializer
+        # Save user with serializer
         serializer = UserSerializers(data=data)
         if serializer.is_valid():
-            serializer.save()  # profile_pic will be saved as string (URL)
+            serializer.save(profile_pic=profile_pic)  # save uploaded file
             return JsonResponse({"message": "User registered successfully"}, status=201)
         else:
-            return JsonResponse({"errors": serializer.errors}, status=400)
+            return JsonResponse(serializer.errors, status=400)
 
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+
 
 
 @csrf_exempt
